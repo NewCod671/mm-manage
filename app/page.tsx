@@ -16,7 +16,9 @@ const monthFormatter = new Intl.DateTimeFormat("th-TH", {
   year: "numeric"
 });
 
-const categoryOptions = ["เงินเดือน", "อาหาร", "สั่งของ", "รถ"];
+const defaultCategoryOptions = ["เงินเดือน", "อาหาร", "สั่งของ", "รถ"];
+const categoryStorageKey = "money-manager-categories";
+const weekOptions = ["1", "2", "3", "4"] as const;
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
@@ -28,6 +30,11 @@ function todayInputValue() {
 
 function monthLabel(monthKey: string) {
   return monthFormatter.format(new Date(`${monthKey}-01T00:00:00`));
+}
+
+function getWeekOfMonth(date: string) {
+  const day = Number(date.slice(8, 10));
+  return Math.min(Math.ceil(day / 7), 4).toString();
 }
 
 async function readApiResponse<T>(response: Response): Promise<T> {
@@ -49,10 +56,15 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(toMonthKey(todayInputValue()));
+  const [selectedWeek, setSelectedWeek] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [type, setType] = useState<TransactionType>("expense");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState(categoryOptions[1]);
+  const [categoryOptions, setCategoryOptions] = useState(defaultCategoryOptions);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [category, setCategory] = useState(defaultCategoryOptions[1]);
+  const [newCategory, setNewCategory] = useState("");
   const [date, setDate] = useState(todayInputValue());
 
   useEffect(() => {
@@ -73,6 +85,39 @@ export default function Home() {
       return () => window.cancelAnimationFrame(frame);
     }
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const savedCategories = window.localStorage.getItem(categoryStorageKey);
+
+      if (savedCategories) {
+        try {
+          const parsedCategories = JSON.parse(savedCategories) as unknown;
+          if (Array.isArray(parsedCategories)) {
+            const nextCategories = parsedCategories.filter(
+              (item): item is string => typeof item === "string" && item.trim().length > 0
+            );
+
+            if (nextCategories.length > 0) {
+              setCategoryOptions(Array.from(new Set([...defaultCategoryOptions, ...nextCategories])));
+            }
+          }
+        } catch {
+          window.localStorage.removeItem(categoryStorageKey);
+        }
+      }
+
+      setCategoriesLoaded(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (categoriesLoaded) {
+      window.localStorage.setItem(categoryStorageKey, JSON.stringify(categoryOptions));
+    }
+  }, [categoriesLoaded, categoryOptions]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -140,11 +185,25 @@ export default function Home() {
     return months.sort().reverse();
   }, [selectedMonth, transactions]);
 
+  const availableCategories = useMemo(() => {
+    const categories = transactions.map((item) => item.category).filter(Boolean);
+    return Array.from(new Set([...categoryOptions, ...categories])).sort((a, b) =>
+      a.localeCompare(b, "th")
+    );
+  }, [categoryOptions, transactions]);
+
   const visibleTransactions = useMemo(() => {
     return transactions
-      .filter((item) => toMonthKey(item.date) === selectedMonth)
+      .filter((item) => {
+        const isSelectedMonth = toMonthKey(item.date) === selectedMonth;
+        const isSelectedWeek = selectedWeek === "all" || getWeekOfMonth(item.date) === selectedWeek;
+        const isSelectedCategory =
+          selectedCategory === "all" || item.category === selectedCategory;
+
+        return isSelectedMonth && isSelectedWeek && isSelectedCategory;
+      })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [selectedMonth, transactions]);
+  }, [selectedCategory, selectedMonth, selectedWeek, transactions]);
 
   const summary = useMemo(() => {
     return visibleTransactions.reduce(
@@ -211,7 +270,7 @@ export default function Home() {
       setSelectedMonth(toMonthKey(date));
       setTitle("");
       setAmount("");
-      setCategory(categoryOptions[1]);
+      setCategory(categoryOptions[1] ?? defaultCategoryOptions[1]);
       setType("expense");
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Save failed";
@@ -264,6 +323,18 @@ export default function Home() {
     setError("");
     await signOut(getFirebaseAuth());
     setTransactions([]);
+  }
+
+  function addCategory() {
+    const nextCategory = newCategory.trim();
+    if (!nextCategory) {
+      return;
+    }
+
+    setCategoryOptions((current) => Array.from(new Set([...current, nextCategory])));
+    setCategory(nextCategory);
+    setSelectedCategory(nextCategory);
+    setNewCategory("");
   }
 
   return (
@@ -368,19 +439,33 @@ export default function Home() {
             />
           </label>
           <label>
-            หมวดหมู่
+            ประเภทการซื้อ
             <select
               value={category}
               disabled={!user}
               onChange={(event) => setCategory(event.target.value)}
             >
-              {categoryOptions.map((option) => (
+              {availableCategories.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
               ))}
             </select>
           </label>
+          <div className="addCategory">
+            <label>
+              เพิ่มประเภท
+              <input
+                value={newCategory}
+                disabled={!user}
+                onChange={(event) => setNewCategory(event.target.value)}
+                placeholder="เช่น ของใช้, เดินทาง"
+              />
+            </label>
+            <button type="button" disabled={!user || !newCategory.trim()} onClick={addCategory}>
+              เพิ่ม
+            </button>
+          </div>
           <label>
             วันที่
             <input
@@ -401,13 +486,46 @@ export default function Home() {
               <p className="eyebrow">รายการเดือน</p>
               <h2>{monthLabel(selectedMonth)}</h2>
             </div>
-            <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
-              {availableMonths.map((month) => (
-                <option key={month} value={month}>
-                  {monthLabel(month)}
-                </option>
-              ))}
-            </select>
+            <div className="filters">
+              <label>
+                เดือน
+                <select
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                >
+                  {availableMonths.map((month) => (
+                    <option key={month} value={month}>
+                      {monthLabel(month)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                สัปดาห์
+                <select value={selectedWeek} onChange={(event) => setSelectedWeek(event.target.value)}>
+                  <option value="all">ทั้งหมด</option>
+                  {weekOptions.map((week) => (
+                    <option key={week} value={week}>
+                      สัปดาห์ที่ {week}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                ประเภท
+                <select
+                  value={selectedCategory}
+                  onChange={(event) => setSelectedCategory(event.target.value)}
+                >
+                  <option value="all">ทั้งหมด</option>
+                  {availableCategories.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="transactionList">
@@ -416,7 +534,7 @@ export default function Home() {
             ) : isLoading ? (
               <p className="empty">กำลังโหลดข้อมูล...</p>
             ) : visibleTransactions.length === 0 ? (
-              <p className="empty">ยังไม่มีรายการในเดือนนี้</p>
+              <p className="empty">ยังไม่มีรายการตามตัวกรองนี้</p>
             ) : (
               visibleTransactions.map((item) => (
                 <article className="transaction" key={item.id}>

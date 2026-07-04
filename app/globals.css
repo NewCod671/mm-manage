@@ -119,7 +119,7 @@ h2 {
 }
 
 .monthPicker input,
-.ledgerHeader select,
+.filters select,
 .entryForm input,
 .entryForm select {
   background: var(--surface);
@@ -218,6 +218,28 @@ h2 {
   gap: 7px;
 }
 
+.addCategory {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.addCategory button {
+  background: #eef2f7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent);
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.addCategory button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .segmented {
   background: #eef2f7;
   border-radius: 8px;
@@ -268,8 +290,25 @@ h2 {
   padding: 22px;
 }
 
-.ledgerHeader select {
-  max-width: 220px;
+.filters {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  max-width: 560px;
+  width: 100%;
+}
+
+.filters label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.filters select {
+  width: 100%;
 }
 
 .transactionList {
@@ -379,6 +418,10 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .filters {
+    max-width: none;
+  }
+
   .transaction {
     grid-template-columns: 12px minmax(0, 1fr) 38px;
   }
@@ -404,6 +447,11 @@ h2 {
   }
 
   .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .addCategory,
+  .filters {
     grid-template-columns: 1fr;
   }
 }
