@@ -161,6 +161,12 @@ export default function Home() {
     );
   }, [visibleTransactions]);
 
+  const totalBalance = useMemo(() => {
+    return transactions.reduce((total, item) => {
+      return item.type === "income" ? total + item.amount : total - item.amount;
+    }, 0);
+  }, [transactions]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -313,6 +319,10 @@ export default function Home() {
         <article className="metric balance">
           <span>เงินคงเหลือ</span>
           <strong>{thb.format(summary.balance)}</strong>
+        </article>
+        <article className="metric total">
+          <span>เงินรวมทั้งหมด</span>
+          <strong>{thb.format(totalBalance)}</strong>
         </article>
       </section>
 

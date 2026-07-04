@@ -10,6 +10,7 @@
   --expense-soft: #fae4e1;
   --balance: #2457a6;
   --balance-soft: #e2ecff;
+  --total-soft: #e8ecdf;
   --accent: #27374d;
   --shadow: 0 18px 50px rgba(28, 39, 57, 0.09);
 }
@@ -132,7 +133,7 @@ h2 {
 .summaryGrid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 18px;
 }
 
@@ -182,6 +183,10 @@ h2 {
 
 .metric.balance {
   background: linear-gradient(180deg, var(--surface), var(--balance-soft));
+}
+
+.metric.total {
+  background: linear-gradient(180deg, var(--surface), var(--total-soft));
 }
 
 .workspace {
@@ -366,9 +371,12 @@ h2 {
     justify-content: space-between;
   }
 
-  .summaryGrid,
   .workspace {
     grid-template-columns: 1fr;
+  }
+
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .transaction {
@@ -393,5 +401,9 @@ h2 {
 
   .transaction {
     padding: 14px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
   }
 }
