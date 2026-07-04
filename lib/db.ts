@@ -1,44 +1,41 @@
-import postgres from "postgres";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 declare global {
-  var moneyManagerSql: postgres.Sql | undefined;
+  var firebaseAdminReady: boolean | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+function getPrivateKey() {
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-export function getSql() {
-  if (!connectionString) {
-    throw new Error("Missing DATABASE_URL or POSTGRES_URL");
+  if (!privateKey) {
+    return null;
   }
 
-  globalThis.moneyManagerSql ??= postgres(connectionString, {
-    max: 1,
-    prepare: false
-  });
-
-  return globalThis.moneyManagerSql;
+  return privateKey.replace(/\\n/g, "\n");
 }
 
-let schemaReady: Promise<void> | undefined;
+export function getDb() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = getPrivateKey();
 
-export function ensureSchema() {
-  schemaReady ??= getSql()`
-    CREATE TABLE IF NOT EXISTS transactions (
-      id UUID PRIMARY KEY,
-      owner_id UUID NOT NULL,
-      title TEXT NOT NULL,
-      amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
-      type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-      category TEXT NOT NULL,
-      transaction_date DATE NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `.then(async () => {
-    await getSql()`
-      CREATE INDEX IF NOT EXISTS transactions_owner_date_idx
-      ON transactions (owner_id, transaction_date DESC)
-    `;
-  });
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error(
+      "Missing FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, or FIREBASE_PRIVATE_KEY"
+    );
+  }
 
-  return schemaReady;
+  if (!globalThis.firebaseAdminReady && getApps().length === 0) {
+    initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey
+      })
+    });
+    globalThis.firebaseAdminReady = true;
+  }
+
+  return getFirestore();
 }

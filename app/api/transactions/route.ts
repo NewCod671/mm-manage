@@ -1,11 +1,12 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ensureSchema, getSql } from "@/lib/db";
+import { FieldValue } from "firebase-admin/firestore";
+import { getDb } from "@/lib/db";
 import {
+  documentToTransaction,
   isTransactionType,
   normalizeDate,
-  rowToTransaction,
-  type TransactionRow
+  type TransactionDocument
 } from "@/lib/transactions";
 
 export const dynamic = "force-dynamic";
@@ -39,27 +40,27 @@ function withOwnerCookie(response: NextResponse, ownerId: string, isNew: boolean
 
 export async function GET() {
   try {
-    await ensureSchema();
     const { ownerId, isNew } = await getOwnerId();
-    const rows = await getSql()`
-      SELECT id, title, amount, type, category, transaction_date
-      FROM transactions
-      WHERE owner_id = ${ownerId}
-      ORDER BY transaction_date DESC, created_at DESC
-    `;
-
-    const transactions = rows.map((row) => rowToTransaction(row as TransactionRow));
+    const snapshot = await getDb()
+      .collection("transactions")
+      .where("ownerId", "==", ownerId)
+      .get();
+    const transactions = snapshot.docs
+      .map((doc) => {
+        const data = doc.data() as Omit<TransactionDocument, "id">;
+        return documentToTransaction({ id: doc.id, ...data });
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
 
     return withOwnerCookie(NextResponse.json({ transactions }), ownerId, isNew);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Database error";
+    const message = error instanceof Error ? error.message : "Firebase error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await ensureSchema();
     const { ownerId, isNew } = await getOwnerId();
     const body = (await request.json()) as Record<string, unknown>;
     const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -76,22 +77,36 @@ export async function POST(request: Request) {
     }
 
     const id = crypto.randomUUID();
-    const rows = await getSql()`
-      INSERT INTO transactions (id, owner_id, title, amount, type, category, transaction_date)
-      VALUES (${id}, ${ownerId}, ${title}, ${amount}, ${body.type}, ${category}, ${date})
-      RETURNING id, title, amount, type, category, transaction_date
-    `;
+    const transaction: TransactionDocument = {
+      id,
+      ownerId,
+      title,
+      amount,
+      type: body.type,
+      category,
+      date
+    };
+
+    await getDb()
+      .collection("transactions")
+      .doc(id)
+      .set({
+        ownerId,
+        title,
+        amount,
+        type: body.type,
+        category,
+        date,
+        createdAt: FieldValue.serverTimestamp()
+      });
 
     return withOwnerCookie(
-      NextResponse.json(
-        { transaction: rowToTransaction(rows[0] as TransactionRow) },
-        { status: 201 }
-      ),
+      NextResponse.json({ transaction: documentToTransaction(transaction) }, { status: 201 }),
       ownerId,
       isNew
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Database error";
+    const message = error instanceof Error ? error.message : "Firebase error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

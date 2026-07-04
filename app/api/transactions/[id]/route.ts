@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ensureSchema, getSql } from "@/lib/db";
+import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,7 +12,6 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    await ensureSchema();
     const cookieStore = await cookies();
     const ownerId = cookieStore.get(ownerCookieName)?.value;
     const { id } = await context.params;
@@ -25,14 +24,18 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid transaction id" }, { status: 400 });
     }
 
-    await getSql()`
-      DELETE FROM transactions
-      WHERE id = ${id} AND owner_id = ${ownerId}
-    `;
+    const documentRef = getDb().collection("transactions").doc(id);
+    const document = await documentRef.get();
+
+    if (!document.exists || document.data()?.ownerId !== ownerId) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 });
+    }
+
+    await documentRef.delete();
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Database error";
+    const message = error instanceof Error ? error.message : "Firebase error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

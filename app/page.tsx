@@ -192,7 +192,7 @@ export default function Home() {
         <section className="notice" role="alert">
           <strong>เชื่อมต่อฐานข้อมูลไม่ได้</strong>
           <span>{error}</span>
-          <span>ตั้งค่า DATABASE_URL หรือ POSTGRES_URL ก่อน deploy บน Vercel</span>
+          <span>ตั้งค่า FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL และ FIREBASE_PRIVATE_KEY ก่อน deploy บน Vercel</span>
         </section>
       ) : null}
 

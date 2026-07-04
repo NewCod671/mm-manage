@@ -9,13 +9,14 @@ export type Transaction = {
   date: string;
 };
 
-export type TransactionRow = {
+export type TransactionDocument = {
   id: string;
   title: string;
-  amount: string | number;
+  amount: number;
   type: TransactionType;
   category: string;
-  transaction_date: string | Date;
+  date: string;
+  ownerId: string;
 };
 
 export function isTransactionType(value: unknown): value is TransactionType {
@@ -30,18 +31,13 @@ export function normalizeDate(value: unknown) {
   return value;
 }
 
-export function rowToTransaction(row: TransactionRow): Transaction {
-  const date =
-    row.transaction_date instanceof Date
-      ? row.transaction_date.toISOString().slice(0, 10)
-      : String(row.transaction_date).slice(0, 10);
-
+export function documentToTransaction(document: TransactionDocument): Transaction {
   return {
-    id: row.id,
-    title: row.title,
-    amount: Number(row.amount),
-    type: row.type,
-    category: row.category,
-    date
+    id: document.id,
+    title: document.title,
+    amount: document.amount,
+    type: document.type,
+    category: document.category,
+    date: document.date
   };
 }
