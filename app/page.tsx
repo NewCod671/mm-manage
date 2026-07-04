@@ -30,6 +30,17 @@ function monthLabel(monthKey: string) {
   return monthFormatter.format(new Date(`${monthKey}-01T00:00:00`));
 }
 
+async function readApiResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    const preview = text.replace(/\s+/g, " ").slice(0, 140);
+    throw new Error(`API returned non-JSON response (${response.status}): ${preview}`);
+  }
+}
+
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -87,10 +98,10 @@ export default function Home() {
             Authorization: `Bearer ${token}`
           }
         });
-        const payload = (await response.json()) as {
+        const payload = await readApiResponse<{
           transactions?: Transaction[];
           error?: string;
-        };
+        }>(response);
 
         if (!response.ok) {
           throw new Error(payload.error ?? "Load failed");
@@ -181,10 +192,10 @@ export default function Home() {
           date
         })
       });
-      const payload = (await response.json()) as {
+      const payload = await readApiResponse<{
         transaction?: Transaction;
         error?: string;
-      };
+      }>(response);
 
       if (!response.ok || !payload.transaction) {
         throw new Error(payload.error ?? "Save failed");
@@ -219,7 +230,7 @@ export default function Home() {
           Authorization: `Bearer ${token}`
         }
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = await readApiResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error ?? "Delete failed");
