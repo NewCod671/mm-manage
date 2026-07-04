@@ -1,24 +1,18 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getAuthenticatedUserId } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getFirebaseErrorMessage } from "@/lib/firebase-error";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ownerCookieName = "money_manager_owner_id";
-
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const ownerId = cookieStore.get(ownerCookieName)?.value;
+    const ownerId = await getAuthenticatedUserId(request);
     const { id } = await context.params;
-
-    if (!ownerId || !/^[0-9a-f-]{36}$/i.test(ownerId)) {
-      return NextResponse.json({ error: "Owner not found" }, { status: 401 });
-    }
 
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       return NextResponse.json({ error: "Invalid transaction id" }, { status: 400 });
@@ -35,7 +29,6 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Firebase error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: getFirebaseErrorMessage(error) }, { status: 500 });
   }
 }

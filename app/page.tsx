@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import { getFirebaseAuth, googleProvider } from "@/lib/firebase-client";
 import type { Transaction, TransactionType } from "@/lib/transactions";
 
 const thb = new Intl.NumberFormat("th-TH", {
@@ -13,6 +15,8 @@ const monthFormatter = new Intl.DateTimeFormat("th-TH", {
   month: "long",
   year: "numeric"
 });
+
+const categoryOptions = ["เงินเดือน", "อาหาร", "สั่งของ", "รถ"];
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
@@ -28,6 +32,8 @@ function monthLabel(monthKey: string) {
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -35,15 +41,52 @@ export default function Home() {
   const [type, setType] = useState<TransactionType>("expense");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(categoryOptions[1]);
   const [date, setDate] = useState(todayInputValue());
+
+  useEffect(() => {
+    try {
+      const auth = getFirebaseAuth();
+      return onAuthStateChanged(auth, (nextUser) => {
+        setUser(nextUser);
+        setAuthReady(true);
+      });
+    } catch (authError) {
+      const message = authError instanceof Error ? authError.message : "Firebase auth failed";
+      const frame = window.requestAnimationFrame(() => {
+        setError(message);
+        setAuthReady(true);
+        setIsLoading(false);
+      });
+
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, []);
 
   useEffect(() => {
     let isCurrent = true;
 
     async function loadTransactions() {
+      if (!authReady) {
+        return;
+      }
+
+      if (!user) {
+        setTransactions([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+
       try {
-        const response = await fetch("/api/transactions", { cache: "no-store" });
+        const token = await user.getIdToken();
+        const response = await fetch("/api/transactions", {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         const payload = (await response.json()) as {
           transactions?: Transaction[];
           error?: string;
@@ -76,7 +119,7 @@ export default function Home() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [authReady, user]);
 
   const availableMonths = useMemo(() => {
     const months = Array.from(new Set(transactions.map((item) => toMonthKey(item.date))));
@@ -119,9 +162,17 @@ export default function Home() {
     setError("");
 
     try {
+      if (!user) {
+        throw new Error("กรุณาเข้าสู่ระบบด้วย Google ก่อน");
+      }
+
+      const token = await user.getIdToken();
       const response = await fetch("/api/transactions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           title: title.trim(),
           amount: numericAmount,
@@ -143,7 +194,7 @@ export default function Home() {
       setSelectedMonth(toMonthKey(date));
       setTitle("");
       setAmount("");
-      setCategory("");
+      setCategory(categoryOptions[1]);
       setType("expense");
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Save failed";
@@ -157,7 +208,17 @@ export default function Home() {
     setError("");
 
     try {
-      const response = await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+      if (!user) {
+        throw new Error("กรุณาเข้าสู่ระบบด้วย Google ก่อน");
+      }
+
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/transactions/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       const payload = (await response.json()) as { error?: string };
 
       if (!response.ok) {
@@ -171,6 +232,23 @@ export default function Home() {
     }
   }
 
+  async function loginWithGoogle() {
+    setError("");
+    try {
+      const auth = getFirebaseAuth();
+      await signInWithPopup(auth, googleProvider);
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : "Google login failed";
+      setError(message);
+    }
+  }
+
+  async function logout() {
+    setError("");
+    await signOut(getFirebaseAuth());
+    setTransactions([]);
+  }
+
   return (
     <main className="shell">
       <section className="topbar">
@@ -178,21 +256,37 @@ export default function Home() {
           <p className="eyebrow">Money Manager</p>
           <h1>จัดการรายรับ - รายจ่าย</h1>
         </div>
-        <label className="monthPicker">
-          <span>เดือนที่ดู</span>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(event) => setSelectedMonth(event.target.value)}
-          />
-        </label>
+        <div className="topActions">
+          <div className="authPanel">
+            {user ? (
+              <>
+                <span>{user.displayName ?? user.email}</span>
+                <button type="button" onClick={logout}>
+                  ออกจากระบบ
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={loginWithGoogle} disabled={!authReady}>
+                เข้าสู่ระบบด้วย Google
+              </button>
+            )}
+          </div>
+          <label className="monthPicker">
+            <span>เดือนที่ดู</span>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+            />
+          </label>
+        </div>
       </section>
 
       {error ? (
         <section className="notice" role="alert">
           <strong>เชื่อมต่อฐานข้อมูลไม่ได้</strong>
           <span>{error}</span>
-          <span>ตั้งค่า FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL และ FIREBASE_PRIVATE_KEY ก่อน deploy บน Vercel</span>
+          <span>ตรวจว่าเปิด Firestore Database แล้ว และตั้งค่า Firebase service account ใน Vercel ถูกต้อง</span>
         </section>
       ) : null}
 
@@ -218,6 +312,7 @@ export default function Home() {
             <button
               className={type === "income" ? "active" : ""}
               type="button"
+              disabled={!user}
               onClick={() => setType("income")}
             >
               รายรับ
@@ -225,6 +320,7 @@ export default function Home() {
             <button
               className={type === "expense" ? "active" : ""}
               type="button"
+              disabled={!user}
               onClick={() => setType("expense")}
             >
               รายจ่าย
@@ -234,6 +330,7 @@ export default function Home() {
             ชื่อรายการ
             <input
               value={title}
+              disabled={!user}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="เช่น เงินเดือน, ค่าอาหาร"
             />
@@ -244,23 +341,35 @@ export default function Home() {
               min="1"
               type="number"
               value={amount}
+              disabled={!user}
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0"
             />
           </label>
           <label>
             หมวดหมู่
-            <input
+            <select
               value={category}
+              disabled={!user}
               onChange={(event) => setCategory(event.target.value)}
-              placeholder="เช่น งาน, บ้าน, เดินทาง"
-            />
+            >
+              {categoryOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             วันที่
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <input
+              type="date"
+              value={date}
+              disabled={!user}
+              onChange={(event) => setDate(event.target.value)}
+            />
           </label>
-          <button className="submitButton" disabled={isSaving || isLoading} type="submit">
+          <button className="submitButton" disabled={!user || isSaving || isLoading} type="submit">
             {isSaving ? "กำลังบันทึก..." : "บันทึกรายการ"}
           </button>
         </form>
@@ -281,7 +390,9 @@ export default function Home() {
           </div>
 
           <div className="transactionList">
-            {isLoading ? (
+            {!user ? (
+              <p className="empty">กรุณาเข้าสู่ระบบด้วย Google เพื่อดูข้อมูลของคุณ</p>
+            ) : isLoading ? (
               <p className="empty">กำลังโหลดข้อมูล...</p>
             ) : visibleTransactions.length === 0 ? (
               <p className="empty">ยังไม่มีรายการในเดือนนี้</p>

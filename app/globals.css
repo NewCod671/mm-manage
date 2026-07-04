@@ -85,9 +85,42 @@ h2 {
   gap: 8px;
 }
 
+.topActions {
+  align-items: end;
+  display: flex;
+  gap: 12px;
+}
+
+.authPanel {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.authPanel span {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.authPanel button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent);
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 .monthPicker input,
 .ledgerHeader select,
-.entryForm input {
+.entryForm input,
+.entryForm select {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -322,6 +355,15 @@ h2 {
 
   .monthPicker {
     flex: 1;
+  }
+
+  .topActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .authPanel {
+    justify-content: space-between;
   }
 
   .summaryGrid,
