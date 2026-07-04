@@ -9,13 +9,17 @@ const firebaseConfig = {
 };
 
 export function getFirebaseAuth() {
-  if (
-    !firebaseConfig.apiKey ||
-    !firebaseConfig.authDomain ||
-    !firebaseConfig.projectId ||
-    !firebaseConfig.appId
-  ) {
-    throw new Error("Missing Firebase web app configuration");
+  const missingConfig = [
+    ["NEXT_PUBLIC_FIREBASE_API_KEY", firebaseConfig.apiKey],
+    ["NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", firebaseConfig.authDomain],
+    ["NEXT_PUBLIC_FIREBASE_PROJECT_ID", firebaseConfig.projectId],
+    ["NEXT_PUBLIC_FIREBASE_APP_ID", firebaseConfig.appId]
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missingConfig.length > 0) {
+    throw new Error(`Missing Firebase web app configuration: ${missingConfig.join(", ")}`);
   }
 
   const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
