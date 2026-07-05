@@ -18,7 +18,9 @@ const monthFormatter = new Intl.DateTimeFormat("th-TH", {
 
 const defaultCategoryOptions = ["เงินเดือน", "อาหาร", "สั่งของ", "รถ"];
 const categoryStorageKey = "money-manager-categories";
+const themeStorageKey = "money-manager-theme";
 const weekOptions = ["1", "2", "3", "4"] as const;
+type Theme = "light" | "dark";
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
@@ -66,6 +68,29 @@ export default function Home() {
   const [category, setCategory] = useState(defaultCategoryOptions[1]);
   const [newCategory, setNewCategory] = useState("");
   const [date, setDate] = useState(todayInputValue());
+  const [theme, setTheme] = useState<Theme>("light");
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const savedTheme = window.localStorage.getItem(themeStorageKey);
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const nextTheme =
+        savedTheme === "dark" || savedTheme === "light"
+          ? savedTheme
+          : prefersDark
+            ? "dark"
+            : "light";
+
+      setTheme(nextTheme);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem(themeStorageKey, theme);
+  }, [theme]);
 
   useEffect(() => {
     try {
@@ -337,6 +362,10 @@ export default function Home() {
     setNewCategory("");
   }
 
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   return (
     <main className="shell">
       <section className="topbar">
@@ -345,6 +374,15 @@ export default function Home() {
           <h1>จัดการรายรับ - รายจ่าย</h1>
         </div>
         <div className="topActions">
+          <button
+            className="themeToggle"
+            type="button"
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
           <div className="authPanel">
             {user ? (
               <>

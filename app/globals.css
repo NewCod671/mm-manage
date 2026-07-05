@@ -1,6 +1,8 @@
 :root {
   --bg: #f5f7fb;
   --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --control: #eef2f7;
   --ink: #172033;
   --muted: #687386;
   --line: #dfe5ee;
@@ -12,7 +14,38 @@
   --balance-soft: #e2ecff;
   --total-soft: #e8ecdf;
   --accent: #27374d;
+  --accent-ink: #ffffff;
+  --notice-bg: #fff7df;
+  --notice-line: #ead28b;
+  --notice-ink: #5d4610;
+  --notice-strong: #2f2409;
   --shadow: 0 18px 50px rgba(28, 39, 57, 0.09);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #101418;
+  --surface: #171d23;
+  --surface-raised: #1c242c;
+  --control: #242d36;
+  --ink: #edf2f7;
+  --muted: #a7b1bf;
+  --line: #2f3a45;
+  --income: #62d6a4;
+  --income-soft: #17372d;
+  --expense: #ff9188;
+  --expense-soft: #3b2222;
+  --balance: #8eb8ff;
+  --balance-soft: #1b2f4d;
+  --total-soft: #2b3327;
+  --accent: #d8e4f5;
+  --accent-ink: #101418;
+  --notice-bg: #332b18;
+  --notice-line: #6c5724;
+  --notice-ink: #f4dc99;
+  --notice-strong: #fff0bd;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+  color-scheme: dark;
 }
 
 * {
@@ -118,11 +151,21 @@ h2 {
   padding: 0 14px;
 }
 
+.themeToggle {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent-ink);
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 .monthPicker input,
 .filters select,
 .entryForm input,
 .entryForm select {
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
@@ -138,10 +181,10 @@ h2 {
 }
 
 .notice {
-  background: #fff7df;
-  border: 1px solid #ead28b;
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-line);
   border-radius: 8px;
-  color: #5d4610;
+  color: var(--notice-ink);
   display: grid;
   gap: 6px;
   margin-bottom: 18px;
@@ -149,7 +192,7 @@ h2 {
 }
 
 .notice strong {
-  color: #2f2409;
+  color: var(--notice-strong);
 }
 
 .metric {
@@ -226,7 +269,7 @@ h2 {
 }
 
 .addCategory button {
-  background: #eef2f7;
+  background: var(--control);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--accent);
@@ -241,7 +284,7 @@ h2 {
 }
 
 .segmented {
-  background: #eef2f7;
+  background: var(--control);
   border-radius: 8px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -258,7 +301,7 @@ h2 {
 
 .segmented button.active {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-ink);
   font-weight: 700;
 }
 
@@ -266,7 +309,7 @@ h2 {
   background: var(--accent);
   border: 0;
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--accent-ink);
   font-weight: 700;
   min-height: 46px;
 }
@@ -318,7 +361,7 @@ h2 {
 
 .transaction {
   align-items: center;
-  background: #ffffff;
+  background: var(--surface);
   display: grid;
   gap: 14px;
   grid-template-columns: 12px minmax(0, 1fr) auto 38px;
@@ -372,7 +415,7 @@ h2 {
 
 .iconButton {
   align-items: center;
-  background: #f3f5f8;
+  background: var(--control);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--muted);
